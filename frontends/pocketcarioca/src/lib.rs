@@ -402,13 +402,9 @@ pub extern "system" fn Java_com_hcode91_pocketcarioca_Core_frame(
 #[allow(clippy::too_many_arguments)]
 fn frame(g: &mut GlState, width: i32, height: i32, buttons: u32, ax: f32, ay: f32, ff: bool, paused: bool) -> i32 {
     let Some(gl) = g.gl.clone() else { return 3 };
-    unsafe {
-        use glow::HasContext;
-        gl.bind_framebuffer(glow::FRAMEBUFFER, None);
-        gl.viewport(0, 0, width, height);
-        gl.disable(glow::SCISSOR_TEST);
-        gl.clear_color(0.0, 0.0, 0.0, 1.0);
-        gl.clear(glow::COLOR_BUFFER_BIT);
+    if g.running.is_none() {
+        reset_for_present(&gl, width, height);
+        return 3;
     }
     let Some(run) = g.running.as_mut() else { return 3 };
     let (options, motion, keys) = {
@@ -461,11 +457,7 @@ fn frame(g: &mut GlState, width: i32, height: i32, buttons: u32, ax: f32, ay: f3
         None => (session.screen().width() as f32, session.screen().height() as f32),
     };
     let vp = fit(width, height, fw, fh, options.aspect);
-    unsafe {
-        use glow::HasContext;
-        gl.bind_framebuffer(glow::FRAMEBUFFER, None);
-        gl.viewport(0, 0, width, height);
-    }
+    reset_for_present(&gl, width, height);
     match frame_gl {
         Some(f) => painter.draw_texture(&gl, f, vp, options.smooth),
         None => {
@@ -476,6 +468,50 @@ fn frame(g: &mut GlState, width: i32, height: i32, buttons: u32, ax: f32, ay: f3
         }
     }
     0
+}
+
+/// Puts the context back to the state `GlPainter` assumes before it draws the frame.
+///
+/// The painter sets only its program, texture and viewport: it was written to run inside
+/// egui's paint callback, and egui resets the rest first. Here nothing sits between the game's
+/// last draw and ours, so whatever the game left enabled applies to our full-screen triangle.
+/// Depth test against a never-cleared depth buffer, blending with the zero alpha some games
+/// clear to, culling, or a sampler object bound to unit 0 each turn the quad black.
+/// The game's own state is not lost: `Session::resume_context` re-applies it before the next
+/// step.
+fn reset_for_present(gl: &glow::Context, width: i32, height: i32) {
+    use glow::HasContext;
+    unsafe {
+        gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+        for cap in [
+            glow::DEPTH_TEST,
+            glow::STENCIL_TEST,
+            glow::BLEND,
+            glow::CULL_FACE,
+            glow::SCISSOR_TEST,
+            glow::POLYGON_OFFSET_FILL,
+            glow::SAMPLE_ALPHA_TO_COVERAGE,
+            glow::SAMPLE_COVERAGE,
+            glow::DITHER,
+        ] {
+            gl.disable(cap);
+        }
+        gl.color_mask(true, true, true, true);
+        gl.depth_mask(true);
+        gl.stencil_mask(0xff);
+        gl.front_face(glow::CCW);
+        gl.active_texture(glow::TEXTURE0);
+        gl.bind_sampler(0, None);
+        gl.bind_buffer(glow::ARRAY_BUFFER, None);
+        gl.bind_buffer(glow::PIXEL_UNPACK_BUFFER, None);
+        gl.pixel_store_i32(glow::UNPACK_ROW_LENGTH, 0);
+        gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, 0);
+        gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, 0);
+        gl.viewport(0, 0, width, height);
+        gl.clear_color(0.0, 0.0, 0.0, 1.0);
+        gl.clear_depth_f32(1.0);
+        gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT | glow::STENCIL_BUFFER_BIT);
+    }
 }
 
 /// Letterboxes the frame into the surface. `aspect`: 1 stretches, anything else keeps the frame's

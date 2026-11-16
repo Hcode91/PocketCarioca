@@ -45,7 +45,7 @@ fn main() {
         if s.exited_on_its_own() { println!("exited on its own at {i}"); break; }
         if i % 30 == 0 {
             let lit = s.screen().to_argb().iter().filter(|p| (**p & 0xffffff) != 0).count();
-            println!("real {:5.1}s  virtual {:6} ms  lit pixels {lit}", start.elapsed().as_secs_f32(), s.clock_ms());
+            println!("real {:5.1}s  virtual {:6} ms  lit pixels {lit}  api {}  speed {:.0}%", start.elapsed().as_secs_f32(), s.clock_ms(), s.api_calls(), s.reached_speed()*100.0);
         }
     }
     println!("clock {} ms, title {:?}", s.clock_ms(), s.title());

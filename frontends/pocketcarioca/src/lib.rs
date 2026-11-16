@@ -468,6 +468,15 @@ fn frame(g: &mut GlState, width: i32, height: i32, buttons: u32, ax: f32, ay: f3
     match frame_gl {
         Some(f) => painter.draw_texture(&gl, f, vp, options.smooth),
         None => {
+            // A frame the game finished with `eglSwapBuffers` stays on the GPU until someone
+            // asks for it: "whoever reads the screen pixels must call this first" (see
+            // `Session::materialize_gl_frame`). When it can't be shown as a texture — 2D drawn
+            // over it, or the core can't vouch for it — the CPU screen is all we have, and
+            // without this it is stale or empty. Alice in Wonderland draws its menus through GL
+            // and showed pure black (diagnostics: gpu frame false, 0 lit pixels).
+            if !intermediate {
+                session.materialize_gl_frame();
+            }
             let screen = session.screen();
             let key = (screen.generation(), screen.writes());
             let bytes = screen.to_rgb565_bytes();
@@ -553,6 +562,8 @@ pub extern "system" fn Java_com_hcode91_pocketcarioca_Core_diagnostics(env: JNIE
             None => out += "no game running\n",
             Some(run) => {
                 let s = &mut run.session;
+                s.materialize_gl_frame();
+                let (swaps, readbacks) = s.gl_frame_readbacks();
                 let screen = s.screen();
                 let lit = screen.to_argb().iter().filter(|p| (**p & 0xff_ffff) != 0).count();
                 let (heap_used, objects) = s.memory();
@@ -564,11 +575,13 @@ pub extern "system" fn Java_com_hcode91_pocketcarioca_Core_diagnostics(env: JNIE
                     s.reached_speed() * 100.0
                 );
                 out += &format!(
-                    "screen {}x{} lit {} | gpu frame {} | heap {} bytes, {} objects\n",
+                    "screen {}x{} lit {} | gpu frame {} | gl swaps {} readbacks {} | heap {} bytes, {} objects\n",
                     screen.width(),
                     screen.height(),
                     lit,
                     s.gpu_frame().is_some(),
+                    swaps,
+                    readbacks,
                     heap_used,
                     objects
                 );

@@ -24,6 +24,9 @@
     <string name="menu_recalibrate">Recenter motion</string>
     <string name="menu_restart">Restart game</string>
     <string name="menu_settings">Settings</string>
+    <string name="menu_diagnostics">Diagnostics</string>
+    <string name="copy">Copy</string>
+    <string name="copied">Copied to clipboard</string>
     <string name="menu_quit">Quit to library</string>
     <string name="slot_n">Slot %1$d</string>
     <string name="slot_empty">Empty</string>

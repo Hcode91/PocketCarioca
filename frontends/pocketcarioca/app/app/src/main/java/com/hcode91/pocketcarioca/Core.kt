@@ -59,6 +59,7 @@ object Core {
     @JvmStatic external fun saveSlot(slot: Int): String?
     @JvmStatic external fun loadSlot(slot: Int): String?
     @JvmStatic external fun screenshot(): IntArray?
+    @JvmStatic external fun diagnostics(): String?
 
     /** `[w, h, argb...]` from the core into a Bitmap. */
     fun toBitmap(data: IntArray?): Bitmap? {

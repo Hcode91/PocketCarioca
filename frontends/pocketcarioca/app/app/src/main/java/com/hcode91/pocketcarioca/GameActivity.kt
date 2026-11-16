@@ -275,6 +275,7 @@ class GameActivity : AppCompatActivity(), SensorEventListener {
             }
         }
         items += getString(R.string.menu_settings) to { startActivity(Intent(this, SettingsActivity::class.java)) }
+        items += getString(R.string.menu_diagnostics) to { showDiagnostics() }
         items += getString(R.string.menu_quit) to { finishing = true; finish() }
 
         var chosen = -1
@@ -290,6 +291,29 @@ class GameActivity : AppCompatActivity(), SensorEventListener {
                 if (chosen >= 0) items[chosen].second()
             }
             .show()
+    }
+
+    /** Status + core log, copyable, for bug reports from a phone without adb. */
+    private fun showDiagnostics() {
+        gl.queueEvent {
+            val text = Core.diagnostics() ?: "no data"
+            runOnUiThread {
+                val view = TextView(this).apply {
+                    setText(text); setTextIsSelectable(true); textSize = 11f
+                    typeface = android.graphics.Typeface.MONOSPACE; setPadding(32, 24, 32, 24)
+                }
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.menu_diagnostics)
+                    .setView(ScrollView(this).apply { addView(view) })
+                    .setPositiveButton(R.string.copy) { _, _ ->
+                        val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("PocketCarioca diagnostics", text))
+                        Toast.makeText(this, R.string.copied, Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            }
+        }
     }
 
     private fun slotPicker(save: Boolean) {

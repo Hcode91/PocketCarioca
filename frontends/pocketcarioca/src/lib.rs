@@ -414,7 +414,13 @@ fn frame(g: &mut GlState, width: i32, height: i32, buttons: u32, ax: f32, ay: f3
     let session = &mut run.session;
 
     session.freeze_audio(paused);
-    if paused {
+    // **Intermediate screens first, one per frame, without advancing.** A game that calls
+    // `IDISPLAY_Update` inside a single long callback (a loading loop, the Z-Wheel's slide) leaves
+    // one screen per call queued. Upstream measured what happens when a frontend ignores them:
+    // with the queue full, `advance` reports "presented" forever without running the guest, and
+    // the game freezes. Alice in Wonderland froze on a black screen exactly like that here.
+    let intermediate = !paused && session.show_intermediate_frame();
+    if paused || intermediate {
         run.last = Instant::now();
     } else {
         let elapsed = run.last.elapsed().min(MAX_SLICE);
@@ -451,7 +457,8 @@ fn frame(g: &mut GlState, width: i32, height: i32, buttons: u32, ax: f32, ay: f3
     let Some(run) = g.running.as_mut() else { return 3 };
     let Some(painter) = g.painter.as_mut() else { return 0 };
     let session = &mut run.session;
-    let frame_gl = if options.gpu { session.gpu_frame() } else { None };
+    // An intermediate screen is the CPU screen, even when 3D is on the GPU.
+    let frame_gl = if options.gpu && !intermediate { session.gpu_frame() } else { None };
     let (fw, fh) = match &frame_gl {
         Some(f) => (f.ratio, 1.0),
         None => (session.screen().width() as f32, session.screen().height() as f32),
@@ -527,6 +534,58 @@ fn fit(sw: i32, sh: i32, fw: f32, fh: f32, aspect: u8) -> Viewport {
         (sw, (sw as f32 / target) as i32)
     };
     Viewport { x: (sw - w) / 2, bottom_y: (sh - h) / 2, width: w, height: h }
+}
+
+/// A plain-text status report for the in-app Diagnostics screen (GL thread): the user develops
+/// from a phone with no adb, so this is how logs reach a bug report.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_hcode91_pocketcarioca_Core_diagnostics(env: JNIEnv, _: JClass) -> jstring {
+    let options = shared().options;
+    let text = with_gl(|g| {
+        let mut out = String::new();
+        out += &format!(
+            "gpu option {} | gl context {} | painter {}\n",
+            options.gpu,
+            g.gl.is_some(),
+            g.painter.is_some()
+        );
+        match g.running.as_mut() {
+            None => out += "no game running\n",
+            Some(run) => {
+                let s = &mut run.session;
+                let screen = s.screen();
+                let lit = screen.to_argb().iter().filter(|p| (**p & 0xff_ffff) != 0).count();
+                let (heap_used, objects) = s.memory();
+                out += &format!(
+                    "title {} | clock {} ms | api calls {} | speed {:.0}%\n",
+                    s.title(),
+                    s.clock_ms(),
+                    s.api_calls(),
+                    s.reached_speed() * 100.0
+                );
+                out += &format!(
+                    "screen {}x{} lit {} | gpu frame {} | heap {} bytes, {} objects\n",
+                    screen.width(),
+                    screen.height(),
+                    lit,
+                    s.gpu_frame().is_some(),
+                    heap_used,
+                    objects
+                );
+                if let Some(reason) = s.stopped_reason() {
+                    out += &format!("stopped: {reason}\n");
+                }
+                out += "--- log (last 60 lines) ---\n";
+                let log = s.log();
+                for line in log.iter().skip(log.len().saturating_sub(60)) {
+                    out += line;
+                    out += "\n";
+                }
+            }
+        }
+        out
+    });
+    opt_jstring(env, Some(text))
 }
 
 #[unsafe(no_mangle)]

@@ -1,0 +1,146 @@
+# Builds, tests and opens the frontend without an interface on the six platforms.
+#
+# `release.yml` packages headless for four targets, and only on the tag. Here the question is a
+# different one and comes earlier: "does it build, do the tests pass and does the binary
+# respond?" — on the six targets, including the two ARM64 ones the release doesn't package.
+#
+#   linux-x86_64 / linux-aarch64      ubuntu-24.04 / ubuntu-24.04-arm
+#   windows-x86_64 / windows-aarch64  windows-latest / windows-11-arm
+#   macos-x86_64 / macos-arm64        macos-15-intel / macos-latest
+#
+# **No push or merge triggers this.** The repository's only automatic trigger is the tag, in
+# `release.yml`; here you are the one who requests the run from the Actions tab.
+#
+# Native runners, not cross-compilation: `unicorn` compiles QEMU in C and `dynarmic` compiles
+# C++20 — the combination that makes cross-builds suffer. On `windows-aarch64` `unicorn` leaves
+# the graph through a target-conditional dependency and the engine uses `dynarmic`; see
+# `src/cpu/mod.rs`.
+
+name: headless
+
+on:
+  workflow_dispatch:
+
+# One run doesn't cancel the other: a matrix of six runners that dies halfway answers nothing.
+concurrency:
+  group: headless-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compila:
+    name: ${{ matrix.nome }}
+    runs-on: ${{ matrix.sistema }}
+    # A hung target can't burn the account's quota.
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nome: linux-x86_64
+            sistema: ubuntu-24.04
+            binario: target/release/zeebx-headless
+          - nome: linux-aarch64
+            sistema: ubuntu-24.04-arm
+            binario: target/release/zeebx-headless
+          - nome: windows-x86_64
+            sistema: windows-latest
+            binario: target/release/zeebx-headless.exe
+          - nome: windows-aarch64
+            sistema: windows-11-arm
+            binario: target/release/zeebx-headless.exe
+          - nome: macos-x86_64
+            sistema: macos-15-intel
+            binario: target/release/zeebx-headless
+          - nome: macos-arm64
+            sistema: macos-latest
+            binario: target/release/zeebx-headless
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Cache separate from `ci`: there the profile builds the whole library with the command
+      # line, here the target is another binary. Mixing the keys invalidates both all the time.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: headless-${{ matrix.nome }}
+
+      # The `release.yml` list, plus `ninja` and `libclang`: `dynarmic` asks for the Ninja
+      # generator and unicorn's `bindgen` loads the clang library. `winit` and `glutin` still ask
+      # for X11, Wayland and GL at link time, even without an interface — it is the window, not
+      # the interface.
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config python3 libclang-dev \
+            libglib2.0-dev libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev \
+            libgl1-mesa-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev
+
+      - name: macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install cmake ninja pkg-config || true
+
+      # Without debuginfo the `dynarmic` tree goes from more than 5 GiB to a few hundred MB.
+      - name: Build
+        env:
+          CARGO_PROFILE_DEV_DEBUG: "0"
+        run: cargo build --release --locked -p zeebx-headless
+
+      - name: Tests
+        env:
+          CARGO_PROFILE_DEV_DEBUG: "0"
+          CARGO_PROFILE_TEST_DEBUG: "0"
+        run: cargo test --release --locked -p zeebx-headless
+
+      - name: The binary exists
+        shell: bash
+        run: ls -la ${{ matrix.binario }}
+
+      # The three outputs that need neither a game nor a screen, and that prove different things:
+      # `--version` is the binary starting up, `--example` is the template `config.ini` coming out
+      # whole (what the first run writes next to the executable) and `--controllers` exercises
+      # the real initialization — udev and gilrs — before exiting.
+      - name: The binary responds (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          ${{ matrix.binario }} --version
+          ${{ matrix.binario }} --example | grep -q '^\[' || {
+            echo "the template config.ini came out without any section"
+            exit 1
+          }
+          # macOS doesn't ship GNU `timeout`; `perl` has the alarm, and it exists in every image.
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            perl -e 'alarm 60; exec @ARGV' ${{ matrix.binario }} --controllers
+          else
+            timeout 60 ${{ matrix.binario }} --controllers
+          fi
+
+      - name: The binary responds (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & "${{ matrix.binario }}" --version
+          $modelo = & "${{ matrix.binario }}" --example
+          if (-not ($modelo -match '^\[')) { throw "the template config.ini came out without any section" }
+          $prova = Start-Process -FilePath "${{ matrix.binario }}" -ArgumentList "--controllers" -PassThru -NoNewWindow
+          if (-not $prova.WaitForExit(60000)) { $prova.Kill(); throw "the binary hung" }
+          if ($prova.ExitCode -ne 0) { throw "the binary exited with $($prova.ExitCode)" }
+
+      # Test bench for those who don't want to compile: the binary, the commented `config.ini`
+      # and the readme, the same way the release delivers them.
+      - name: Gather the delivery
+        shell: bash
+        run: |
+          mkdir -p entrega
+          cp frontends/headless/config.ini frontends/headless/README.md entrega/
+          cp ${{ matrix.binario }} entrega/
+          ls -l entrega
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zeebx-headless-${{ matrix.nome }}
+          path: entrega/
+          if-no-files-found: error
+          retention-days: 14

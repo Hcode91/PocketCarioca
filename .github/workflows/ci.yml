@@ -1,0 +1,176 @@
+# Builds, tests and opens the desktop. The interface (`frontends/qt-standalone`, binary `zeebx-qt`)
+# comes from `qt.yml`, called by the `qt` job down below: it also builds and opens the installers.
+# The command line (`frontends/cli`, binary `zeebx`) builds in the `compila` job, on the six
+# platforms below — and with it the core and its tests, including on the two ARM64 targets where
+# Qt isn't built.
+#
+# What this job answers is "does the binary come out, do the tests pass and does it open?", which
+# `release.yml` does **not** answer: it runs on tag, packages, and can't hold back the installers
+# because of a test. The release is still tag-only — no PR triggers a release.
+#
+# Six targets, three systems × two architectures:
+#
+#   linux-x86_64 / linux-aarch64      ubuntu-24.04 / ubuntu-24.04-arm
+#   macos-x86_64 / macos-arm64        macos-15-intel / macos-latest
+#
+# **Native runners, not cross-compilation**: `unicorn` compiles QEMU in C and `dynarmic` compiles
+# C++20, which is precisely the combination cross-builds suffer from (C++ toolchain and sysroot).
+# Native ARM64 runners exist for Linux, Windows and macOS, and come out cheaper than maintaining
+# cross.
+#
+# Cost: each target compiles QEMU and the JIT, about 15 minutes per runner. The six command line
+# jobs and the five Qt ones per run are too expensive to spend on every push — that is why this
+# job **only runs by hand**, from the Actions tab.
+
+name: ci
+
+# **No push or merge triggers this.** The repository's only automatic trigger is the tag, in
+# `release.yml`; here you are the one who requests the run, when you want the answer before
+# tagging a version.
+on:
+  workflow_dispatch:
+
+# **One run doesn't cancel the other.** Measured: four back-to-back `ci` runs ended "cancelled"
+# because the new one killed the six-target build that was halfway through — and none of them
+# got to say whether the standalone builds on Windows or macOS.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compila:
+    name: ${{ matrix.nome }}
+    runs-on: ${{ matrix.sistema }}
+    # A target that hung can't burn the account's quota: six hours of waiting become one hour of
+    # failure.
+    timeout-minutes: 60
+    env:
+      BINARIO: target/release/zeebx${{ matrix.exe }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # A manual trigger is always the whole matrix: whoever requests the run wants the answer
+        # for the six targets.
+        alvo:
+          - linux-x86_64
+          - linux-aarch64
+          - windows-x86_64
+          - windows-aarch64
+          - macos-x86_64
+          - macos-arm64
+        include:
+          - alvo: linux-x86_64
+            nome: linux-x86_64
+            sistema: ubuntu-24.04
+            exe: ""
+          - alvo: linux-aarch64
+            nome: linux-aarch64
+            sistema: ubuntu-24.04-arm
+            exe: ""
+          - alvo: windows-x86_64
+            nome: windows-x86_64
+            sistema: windows-latest
+            exe: .exe
+          - alvo: windows-aarch64
+            nome: windows-aarch64
+            sistema: windows-11-arm
+            # Windows ARM64 does **not** have `unicorn` (there is no MASM assembler for ARM64, and
+            # QEMU on Windows assembles a `.asm` with MSVC's `ml`, which only exists for x86 and
+            # x64). The target builds anyway: `unicorn-engine` leaves the graph through a
+            # target-conditional dependency and the engine uses `dynarmic`, which recompiles the A32
+            # blocks. See `src/cpu/mod.rs`, `DefaultBackend`.
+            exe: .exe
+          - alvo: macos-x86_64
+            nome: macos-x86_64
+            sistema: macos-15-intel
+            exe: ""
+          - alvo: macos-arm64
+            nome: macos-arm64
+            sistema: macos-latest
+            exe: ""
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ci-${{ matrix.nome }}
+
+      # The Linux list is the `release.yml` one, plus `ninja` and `libclang` on purpose: `dynarmic`
+      # asks for the Ninja generator and unicorn's `bindgen` loads the clang library. Depending on
+      # what the runner image already ships works until the day it doesn't.
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config python3 libclang-dev \
+            libglib2.0-dev libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev \
+            libgl1-mesa-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev
+
+      - name: macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install cmake ninja pkg-config || true
+
+      # Without debuginfo the tree goes from more than 5 GiB to a few hundred MB — the same reason
+      # the local build filled the disk.
+      # The root package is library-only since 0.3.0: the frontend is what produces the binary,
+      # and without naming it no binary comes out to prove anything.
+      - name: Build
+        shell: bash
+        env:
+          CARGO_PROFILE_DEV_DEBUG: "0"
+        run: cargo build --release --locked -p zeebx-cli
+
+      - name: Tests
+        shell: bash
+        env:
+          CARGO_PROFILE_DEV_DEBUG: "0"
+          CARGO_PROFILE_TEST_DEBUG: "0"
+        run: cargo test --release --locked -p zeebx -p zeebx-cli
+
+      - name: The binary exists
+        shell: bash
+        run: ls -la "$BINARIO"
+
+      # CI is also a test bench for those who don't want to compile. Each target delivers its
+      # executable, `zeebx-cli-*`. The Libretro core is published by the libretro.yml workflow.
+      - name: Deliver the command line
+        uses: actions/upload-artifact@v4
+        with:
+          name: zeebx-cli-${{ matrix.nome }}
+          path: ${{ env.BINARIO }}
+          if-no-files-found: error
+          retention-days: 14
+
+      # `controls` lists the controllers the system sees and exits: it is the cheapest command
+      # that exercises the real initialization (udev, gilrs) without needing a screen. On each
+      # system, with the timeout command it has.
+      - name: The binary opens (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          file "$BINARIO"
+          ldd "$BINARIO" | head -20
+          timeout 60 "$BINARIO" controls
+
+      - name: The binary opens (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          file "$BINARIO"
+          otool -L "$BINARIO" | head -20
+          # macOS doesn't ship GNU `timeout`; `perl` has the alarm, and it exists in every image.
+          perl -e 'alarm 60; exec @ARGV' "$BINARIO" controls
+
+      - name: The binary opens (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $prova = Start-Process -FilePath "$env:BINARIO" -ArgumentList "controls" -PassThru -NoNewWindow
+          if (-not $prova.WaitForExit(60000)) { $prova.Kill(); throw "the binary hung" }
+          if ($prova.ExitCode -ne 0) { throw "the binary exited with $($prova.ExitCode)" }
+
+  # Qt, with the installers, through the same steps as the release. See `qt.yml`.
+  qt:
+    uses: ./.github/workflows/qt.yml

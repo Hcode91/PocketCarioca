@@ -1,0 +1,27 @@
+[package]
+name = "zeebx-libretro"
+version = "0.5.1"
+edition = "2024"
+license = "GPL-2.0-or-later"
+description = "Libretro core of the Zeebx emulator"
+publish = false
+
+[lib]
+name = "zeebx_libretro"
+crate-type = ["cdylib"]
+
+[dependencies]
+# Without `desktop`: the core doesn't link a window, a sound card or a host controller.
+#
+# **With `gl`, and without `gpu`.** `gl` is drawing on the GPU and brings nothing from the host —
+# only `glow`, which is the binding to the API. `gpu` is opening a context of its own and brings
+# `glutin`, which links EGL/GLX: a core can't depend on that, because the frontend is what provides
+# the context. It is what the `ldd` check in `libretro.yml` enforces.
+# `soundfont` goes in too: it is pure Rust (MIT) and brings no host library, so the core can play
+# MIDI with the device's sample bank without breaking the zero-host-dependencies rule.
+zeebx = { path = "../..", default-features = false, features = ["gl", "soundfont"] }
+# The same `glow` the engine uses: the context the frontend provides is built with it.
+glow = "0.16"
+
+[build-dependencies]
+cc = "1.0"

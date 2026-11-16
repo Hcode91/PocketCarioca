@@ -1,0 +1,62 @@
+# Builds the Vita app, without waiting for the tag.
+#
+# `release.yml` assembles the same VPK, but only on tag day and together with everything else.
+# Here it comes out on its own, by hand. The core RetroArch links is still in `libretro.yml`;
+# this workflow is `zeebx.vpk`, which opens without a frontend.
+#
+# **No push or merge triggers this.** The repository's only automatic trigger is the tag, in
+# `release.yml`; here you are the one who requests the run from the Actions tab.
+
+name: vita
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: vita-app-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  vpk:
+    name: vita-vpk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      image: vitasdk/vitasdk:2026.08
+    steps:
+      - name: Git, curl and the host compiler
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential ca-certificates curl git pkg-config unzip zip
+
+      - uses: actions/checkout@v5
+
+      # 1.99.1 on purpose. The VPK rebuilds std with `RUSTC_BOOTSTRAP=1` and uses
+      # `alloc_error_hook`. A new stable may reject both.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
+          components: rust-src
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: vita-app
+
+      - name: Build the VPK
+        run: ./frontends/vita-standalone/build.sh --local
+
+      - name: Package
+        run: |
+          mkdir -p frontends/vita-standalone/out/licenses
+          cp LICENSE LICENSE-GPL3 THIRD-PARTY-NOTICES.txt frontends/vita-standalone/out/licenses/
+          cp frontends/vita-standalone/README.md frontends/vita-standalone/out/
+          cd frontends/vita-standalone/out
+          zip -r "$GITHUB_WORKSPACE/zeebx-vita.zip" zeebx.vpk README.md licenses
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zeebx_vita
+          path: zeebx-vita.zip
+          retention-days: 14
+          if-no-files-found: error

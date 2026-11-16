@@ -1,0 +1,194 @@
+[workspace]
+members = [
+    ".",
+    "frontends/cli",
+    "frontends/qt-standalone",
+    "frontends/libretro",
+    "frontends/android",
+    "frontends/headless",
+    "frontends/ios",
+    "frontends/vita-standalone",
+]
+resolver = "3"
+
+[package]
+name = "zeebx"
+version = "0.5.1"
+edition = "2024"
+# Zeebx's code is GPLv2 or later. The default CPU backend is Dynarmic, to keep the core
+# compatible with GPLv3 frontends such as Qt 6.
+authors = ["ZeebxTeam"]
+license = "GPL-2.0-or-later"
+repository = "https://github.com/ZeebxTeam/zeebx-emu"
+description = "The definitive Zeebo emulator!"
+publish = false
+
+# The core is also consumed by the Android, headless and Libretro frontends.
+[lib]
+name = "zeebx"
+path = "src/lib.rs"
+
+# `desktop` gathers what only the window, the host devices and the interface need: rfd, minifb,
+# cpal, gilrs, Discord, glutin. The Libretro core compiles with `--no-default-features` and
+# links none of it: video, audio and input arrive through frontend callbacks.
+[features]
+default = ["desktop"]
+desktop = [
+    # The desktop UI uses the GPU rasterizer: desktop implies `gpu`.
+    "gpu",
+    # The sound card: desktop implies `audio`.
+    "audio",
+    # The sample bank for MIDI is pure Rust with no host dependency, so it goes in by
+    # default: without an installed `.sf2` it isn't even loaded, and without it the music is the
+    # same as before.
+    "soundfont",
+    "dep:discord-rich-presence",
+    "dep:gilrs",
+    "dep:glutin",
+    "dep:minifb",
+    "dep:raw-window-handle",
+    "dep:rfd",
+    "dep:ureq",
+]
+# Offscreen OpenGL context creation for the GPU rasterizer without a window.
+# Drawing on the GPU: the engine's OpenGL backend. **It pulls in nothing from the host** — `glow`
+# is only the binding to the API, and the context is provided by the caller. It is what the
+# Libretro core needs: it receives the context from the frontend and can't create its own.
+gl = []
+# Sound output through the host's sound card, with `cpal`.
+#
+# **Separate from `desktop` on purpose.** `cpal` isn't interface: on Android it talks to
+# Oboe, which is the device's native output, and the frontend there needs it without needing
+# gilrs or rfd. The Libretro core still goes without: there the frontend does the playing, and
+# the house rule is that the core doesn't link a sound card.
+audio = ["dep:cpal"]
+
+# Sample bank (SoundFont) synthesis for MIDI, instead of the timbre table.
+#
+# `rustysynth` is pure Rust and MIT, so it goes into both the Libretro core and the standalone
+# without bringing in any host library — which is the house rule. The **bank** isn't embedded:
+# it is 32 MB, and the engine looks for an `.sf2` in the device folder, exactly as it does with
+# the system font. Without a bank, MIDI falls back to the timbre table, which is what already
+# plays today.
+soundfont = ["dep:rustysynth"]
+# Open an OpenGL context **of our own**, for the desktop window and for the command line without
+# a window. This is where `glutin` comes in, which links EGL/GLX — the reason the core doesn't use
+# this feature: a core can't depend on a host interface library.
+gpu = ["gl", "dep:glutin", "dep:raw-window-handle"]
+# Download and install the new version on its own: only the two desktop frontends, which are the
+# ones shipped as installers (AppImage, NSIS, `.app`). Separate from `desktop` because headless
+# also uses it, and it ships in a zip nobody installs. It brings in `reqwest`, which must not
+# reach the Libretro core.
+atualizador = ["desktop", "dep:cargo-packager-updater"]
+# The binary is the desktop interface: without the feature it isn't even built.
+[dependencies]
+# The BREW platform without a host: .mod/.mif/.bar, vtables, memory map, heap, VFS and the save
+# state format. Lives in its own repository (ZeebxTeam/zeebx-core).
+zeebx-core = "0.1.1"
+# Interface types shared by the desktop and the Android frontend; doesn't open a window by itself.
+egui = { version = "0.33.3", default-features = false, features = ["default_fonts"] }
+# Host audio output. The decoding is ours: the games hand over PCM.
+# Offscreen OpenGL context for the GPU rasterizer: it is what lets the GPU work
+# in `run` and `session` without a window, where all the measuring is done.
+glutin = { version = "0.32.3", optional = true }
+raw-window-handle = { version = "0.6", optional = true }
+# OpenGL context. `glow` is only the binding to the API, without a window: the engine uses it to
+# draw on the GPU, and a frontend that doesn't create a context simply doesn't instantiate it.
+glow = "0.16"
+cpal = { version = "0.15", optional = true }
+# Real controllers, on the three systems.
+gilrs = { version = "0.11", optional = true }
+# Inflate, for BREW's IUnzipAStream.
+flate2 = "1"
+minifb = { version = "0.28.0", optional = true }
+png = "0.18.1"
+# Only the folder picker. `xdg-portal` avoids depending on GTK on Linux.
+rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "async-std"], optional = true }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+# The HTTP client of the update screen. Only the desktop calls it: the core has no such screen,
+# and the `ring` that `ureq` pulls in doesn't compile for `wasm32-unknown-emscripten`.
+ureq = { version = "3", optional = true }
+# Zip reading only: `deflate` covers what the packagers use.
+zip = { version = "9", default-features = false, features = ["deflate"] }
+# Stable identity for content/caches. Size+mtime can collide or change on an identical copy.
+blake3 = "1"
+resvg = { version = "0.48.1", default-features = false }
+# The console's `AEECLSID_SQLMGR` is real SQLite: the `.db` files the Z-Wheel carries in its
+# package start with "SQLite format 3", and its queries use `INSERT OR REPLACE`, `COLLATE NOCASE`
+# and JOIN. Reimplementing that would be reinventing it badly. The build is bundled so as not to
+# depend on a system library.
+rusqlite = { version = "0.37", features = ["bundled"] }
+# Glyph rasterization for `IDISPLAY_DrawText`: writing a TrueType interpreter would be
+# reinventing it badly.
+ab_glyph = "0.2"
+# Only the JPEG of the `.mif` icons. The rest of the image decoding is ours.
+zune-jpeg = { version = "0.5.15", default-features = false, features = ["std"] }
+# The music of nine games is MP3 — Quake, Quake 2, Galaxy on Fire, Rally Master Pro, Powerboat,
+# Action Hero 3D, Need For Speed, zeetris and the Z-Wheel. A Layer III decoder is Huffman,
+# requantization, IMDCT and a synthesis filter bank, and writing that without a reference to
+# compare against gives sound that plays and comes out wrong. symphonia is pure Rust (no C build)
+# and MPL-2.0, which is compatible with the GPLv2+ license here. Only MP3 goes in: the rest of the
+# codecs stay out.
+# `mp3` is the music of most games; `ogg`/`vorbis` is that of the ones that ship Opus/Vorbis —
+# Turma da Mônica has **86 sounds** in Ogg, and without the feature the game runs in absolute
+# silence (measured: peak 0.000 in the scan report). It is the same decoder, with two more boxes.
+symphonia = { version = "0.5.5", default-features = false, features = ["mp1", "mp2", "mp3", "ogg", "vorbis"] }
+discord-rich-presence = { version = "1.1", optional = true }
+sevenz-rust2 = "0.23.0"
+# Sample bank synthesis, see the `soundfont` feature. MIT and pure Rust: no C, no host library,
+# and that is why it can go into the Libretro core.
+rustysynth = { version = "1.3.6", optional = true }
+# What downloads, checks the minisign signature and installs the new version. It is from the
+# same project as `cargo packager`, and understands the packages it generates. MIT or Apache-2.0.
+cargo-packager-updater = { version = "0.2.3", optional = true }
+
+# `dynarmic` recompiles A32 to the host's native code. Kingdom Hearts needs it
+# because the 3D extension runs its own ARM rasterizer over millions of pixels. Three targets are
+# left out, and on them the core is the interpreter in `src/cpu/interpreter.rs`:
+#
+# - on `wasm32` there is nowhere to recompile to — the browser doesn't run the block the JIT
+#   would emit;
+# - on iOS the system refuses the executable page the allocator asks for. oaknut, under
+#   `TARGET_OS_IPHONE`, maps the page as executable and then swaps the protection with `mprotect`,
+#   and that is a system privilege — the simulator is iPhone OS too;
+# - on the Vita the host is a Cortex-A9, 32-bit ARMv7. dynarmic only emits x86_64 and AArch64.
+[target.'cfg(not(any(target_arch = "wasm32", target_os = "ios", target_os = "vita")))'.dependencies]
+dynarmic = "0.1.3"
+
+# The `ioctl` that reads the scale of the motion sensors in `/dev/input`. It was already in the
+# tree through several dependencies, so it adds no build at all.
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+
+# `cargo run` without `--release` ran Quake 6.9x slower — 21.7 s against 3.2 s for the
+# same work (668 M instructions, 378 laps). No surprise: the rasterizer and the API dispatch
+# are tight loops in Rust, and `opt-level = 0` inlines nothing.
+#
+# Measured in this tree, same work, with the dependencies at 3:
+#
+#   opt-level   run       incremental rebuild
+#           0   21690 ms   3020 ms
+#           1    3427 ms   2572 ms
+#           2    3391 ms   2668 ms
+#     release    3164 ms          —
+#
+# The incremental rebuild doesn't get worse — at `opt-level = 0` LLVM generates more code, and
+# that offsets what the optimization costs. So the development profile stays at 2: 7% slower
+# than release, with the debug assertions and symbols that `dev` exists to have.
+[profile.dev]
+opt-level = 2
+
+# The dependencies don't change between one build and the next, so optimizing them is a
+# one-time cost.
+[profile.dev.package."*"]
+opt-level = 3
+
+# Android and the rasterizer go through several small layers/crates on the hot path.
+# ThinLTO lets LLVM cross those boundaries in the final package without the build cost of full
+# LTO. One codegen unit gives the optimizer the widest possible view in release; it only
+# changes compile time/size, not the emulator's behavior.
+[profile.release]
+lto = "thin"
+codegen-units = 1

@@ -1,0 +1,47 @@
+[package]
+name = "zeebx-headless"
+version = "0.5.1"
+edition = "2024"
+license = "GPL-2.0-or-later"
+description = "Zeebx without an interface, for those with a frontend of their own"
+publish = false
+
+# A single binary, and no library: this package has nothing anyone would want to import. What
+# is reusable lives in the core, which is where it comes from.
+[[bin]]
+name = "zeebx-headless"
+path = "src/main.rs"
+
+[dependencies]
+zeebx = { path = "../.." }
+
+# **There is no eframe here, and that is the reason this package exists.** eframe exists to put
+# an interface on screen; here there is no interface, there is a frame, and spinning an egui loop
+# underneath nothing would be paying for the whole interface to draw a rectangle.
+#
+# This is about the **loop**, not about the build size: the `zeebx` below is the whole library,
+# and outside Android it brings `rfd`, Discord and `ureq` on its own
+# — see the root's `[target.'cfg(not(target_os = "android"))'.dependencies]`. Building this
+# builds that along with it. Really separating them would mean putting the desktop screens behind
+# a core feature, which hasn't been done yet.
+#
+# `egui` stays, but only for the types: `egui::Key` is the canonical name of a key in
+# `settings.json`, and `ViewportInPixels` is what the core's painter receives. Nothing is drawn
+# with it — and, since it is already in the tree because of the core, it adds no build at all.
+egui = { version = "0.33.3", default-features = false }
+glow = "0.16"
+raw-window-handle = "0.6"
+# The window and the input, with no interface in between. glutin provides the GL context, and it
+# is the same crate the core already uses for the offscreen context and that the Android frontend
+# uses for EGL.
+#
+# **With the default features, and this matters.** They are `rwh_06`, `x11`, `wayland`,
+# `wayland-dlopen` and `wayland-csd-adwaita`; on a system that isn't Unix the last three don't
+# exist and cost nothing. A version of this listed `x11` and `wayland` by hand, without defaults,
+# and lost precisely `wayland-dlopen`: without it the binary ties `libwayland-client.so` in the
+# linker and doesn't open where it isn't installed — which is the machine of whoever only has X11.
+winit = "0.30"
+glutin = "0.32.3"
+glutin-winit = "0.5"
+# Only the frame dump as `.png`. It was already in the tree through the core.
+png = "0.18.1"

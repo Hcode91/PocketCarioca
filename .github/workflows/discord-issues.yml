@@ -1,0 +1,100 @@
+# Posts to Discord when an issue opens, closes, reopens or changes assignee.
+#
+# The goal is that nobody starts a feature someone else already took: the assigned issue is the
+# record of who is doing what, and the channel is where everyone sees it without opening GitHub.
+#
+# **This is an exception to the rule that only the tag triggers a workflow on its own.** The rule
+# exists because of the six build runners; this is a `curl` on an ubuntu, which ends in seconds.
+#
+# **The webhook lives in the `DISCORD_WEBHOOK_ISSUES` secret** (Settings > Secrets and variables >
+# Actions). Whoever has the URL posts to the channel, so it can't appear in the repository.
+# Without the secret the job doesn't run, instead of failing on every issue -- that is the case
+# for forks.
+#
+# **The issue fields come in through `env` and the JSON is built by `jq`.** Title and user name
+# are anyone's text; interpolated with `${{ }}` straight into the shell, a title with quotes or
+# `$(...)` would become a command.
+#
+# The text posted to the channel stays in Portuguese on purpose: it is read by the community on
+# the Discord server, not by contributors in the repository.
+
+name: discord-issues
+
+on:
+  issues:
+    types: [opened, reopened, closed, assigned, unassigned]
+
+permissions: {}
+
+jobs:
+  avisar:
+    name: notify on Discord
+    runs-on: ubuntu-latest
+    env:
+      WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_ISSUES }}
+    steps:
+      - name: send
+        if: env.WEBHOOK != ''
+        env:
+          ACTION: ${{ github.event.action }}
+          REASON: ${{ github.event.issue.state_reason }}
+          NUMBER: ${{ github.event.issue.number }}
+          TITLE: ${{ github.event.issue.title }}
+          URL: ${{ github.event.issue.html_url }}
+          SENDER: ${{ github.event.sender.login }}
+          AVATAR: ${{ github.event.sender.avatar_url }}
+          TARGET: ${{ github.event.assignee.login }}
+          ASSIGNEES: ${{ join(github.event.issue.assignees.*.login, ', ') }}
+          LABELS: ${{ join(github.event.issue.labels.*.name, ', ') }}
+        run: |
+          # Color in the decimal format Discord expects: green opens, purple completes, grey
+          # discards, blue is assignment, orange is when the issue loses someone who was on it.
+          case "$ACTION" in
+            opened)     text="abriu a issue";                           color_code=3066993 ;;
+            reopened)   text="reabriu a issue";                         color_code=3066993 ;;
+            closed)
+              if [ "$REASON" = "not_planned" ]; then
+                text="fechou a issue como não planejada";               color_code=9807270
+              else
+                text="fechou a issue como concluída";                   color_code=10181046
+              fi ;;
+            assigned)
+              if [ "$TARGET" = "$SENDER" ]; then
+                text="assumiu a issue"
+              else
+                text="atribuiu a issue a **$TARGET**"
+              fi;                                                        color_code=3447003 ;;
+            unassigned)
+              if [ "$TARGET" = "$SENDER" ]; then
+                text="largou a issue"
+              else
+                text="tirou **$TARGET** da issue"
+              fi;                                                        color_code=15105570 ;;
+          esac
+
+          jq -n \
+            --arg title "#$NUMBER $TITLE" \
+            --arg url "$URL" \
+            --arg sender "$SENDER" \
+            --arg avatar "$AVATAR" \
+            --arg text "$text" \
+            --argjson color_code "$color_code" \
+            --arg assignees "${ASSIGNEES:-ninguém}" \
+            --arg labels "$LABELS" \
+            '{
+              username: "Zeebx Issues",
+              allowed_mentions: { parse: [] },
+              embeds: [{
+                title: ($title | .[0:256]),
+                url: $url,
+                color: $color_code,
+                author: { name: $sender, icon_url: $avatar, url: ("https://github.com/" + $sender) },
+                description: ("**" + $sender + "** " + $text),
+                fields: (
+                  [{ name: "Responsáveis", value: $assignees, inline: true }]
+                  + (if $labels == "" then [] else [{ name: "Rótulos", value: $labels, inline: true }] end)
+                )
+              }]
+            }' > payload.json
+
+          curl --fail-with-body -sS -H "Content-Type: application/json" -d @payload.json "$WEBHOOK"

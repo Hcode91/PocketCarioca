@@ -1,0 +1,50 @@
+# Configuration for `cargo about`, which `tools/third_party_notices.py` runs to generate
+# `THIRD-PARTY-NOTICES.txt`. See the comment at the top of that script.
+
+# The licenses we accept linking into a GPLv3 binary. A new crate with a license outside this
+# list makes `cargo about` fail, and that is the moment to check whether it is GPL-compatible
+# before it goes in.
+accepted = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "bzip2-1.0.6",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "OFL-1.1",
+    "Ubuntu-font-1.0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+
+# The targets some release binary is compiled for. The Switch is left out: its target isn't a
+# rustc one, and what it links is a subset of the Libretro core, which is here.
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "aarch64-linux-android",
+    "x86_64-linux-android",
+    "aarch64-apple-ios",
+    "wasm32-unknown-emscripten",
+]
+
+# Zeebx's own crates (all `publish = false`) aren't third-party: their license is the root
+# LICENSE.
+private = { ignore = true }
+
+ignore-dev-dependencies = true
+ignore-build-dependencies = true
+# `ring` declares "Apache-2.0 AND ISC" without saying which file is which; `cargo about`'s own
+# workaround knows how to split them.
+workarounds = ["ring"]

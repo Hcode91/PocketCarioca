@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The map of the controller's regions. It is never shown: it is only the outline of each button
+  over the art in `controller.png`, which is why the `viewBox` must be exactly that image's size.
+
+  Keeping the map apart from the art is what lets the drawing change without touching code:
+  whoever redraws the controller adjusts the shapes here and that's it. Each shape's `id` is the
+  button's name as the emulator knows it.
+
+  A button the art does not draw simply has no shape here, and does not light up — it stays
+  configurable from the list.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1616 973" width="1616" height="973">
+  <g fill="#fff">
+    <!-- Braços do direcional. A cruz tem a barra vertical em 299..447 e a horizontal em
+         429..567; o miolo é o cruzamento das duas e não pertence a direção nenhuma. -->
+    <rect id="up" x="305" y="328" width="136" height="106" rx="28"/>
+    <rect id="down" x="305" y="560" width="136" height="101" rx="28"/>
+    <rect id="left" x="202" y="436" width="102" height="124" rx="28"/>
+    <rect id="right" x="442" y="436" width="102" height="124" rx="28"/>
+
+    <!-- Botões de ação, no losango. **A numeração é a do aparelho**, e ela não é a ordem em que
+         os olhos leem: 1 fica embaixo, 2 à esquerda, 3 no topo e 4 à direita — conferido nas
+         imagens oficiais do controle. Estava trocado aqui (o 2 à direita, o 3 à esquerda, o 4 no
+         topo), e o emulador desenhava uma coisa enquanto o núcleo mapeava outra: issue #41. -->
+    <circle id="b3" cx="1246" cy="367" r="58"/>
+    <circle id="b4" cx="1373" cy="465" r="57"/>
+    <circle id="b1" cx="1246" cy="565" r="58"/>
+    <circle id="b2" cx="1119" cy="465" r="56"/>
+
+    <!-- Analógicos. -->
+    <circle id="lthumb" cx="619" cy="715" r="126"/>
+    <circle id="rthumb" cx="995" cy="715" r="126"/>
+
+    <!-- O botão central. -->
+    <rect id="back" x="708" y="399" width="199" height="58" rx="29"/>
+  </g>
+
+  <!-- Ombros. A arte não fecha o contorno deles: eles são o alto do corpo até o entalhe, e por
+       isso a região é uma faixa que acompanha a borda por dentro. Um traço grosso segue essa
+       curva melhor que qualquer retângulo. -->
+  <g fill="none" stroke="#fff" stroke-width="44" stroke-linecap="round">
+    <path id="zl" d="M 252 262 Q 350 218 480 222"/>
+    <path id="zr" d="M 1364 262 Q 1266 218 1136 222"/>
+  </g>
+</svg>

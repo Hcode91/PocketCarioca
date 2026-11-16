@@ -1,0 +1,75 @@
+# `master` received a new version: create the tag and build the release, without anyone typing
+# anything.
+#
+# The trigger is the push to `master`, which is what a merged PR produces -- it works for merge,
+# squash and rebase, which `pull_request: closed` would handle in three different ways.
+#
+# **The version is the one in the root `Cargo.toml`.** It is the source: the four frontends and
+# the `.info` already follow it. If the matching tag exists, there is no new version and the job
+# ends without doing anything -- that is the case for every push to `master` that doesn't bump
+# the version, which is most of them.
+#
+# **Why this calls `release.yml` instead of just pushing the tag:** a tag created with
+# `GITHUB_TOKEN` triggers no workflow at all. GitHub blocks it to avoid recursion, and the
+# symptom would be the tag being born alone, with no package at all. By calling it, everything
+# runs in the same execution and no personal token needs to become a secret.
+
+name: tag
+
+on:
+  push:
+    branches: [master]
+  # To redo a version's tag by hand, if the run failed halfway.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  versao:
+    name: is the version new?
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.versao.outputs.tag }}
+      nova: ${{ steps.versao.outputs.nova }}
+    steps:
+      # The tags come along: without them every version would look new, and the step below would
+      # try to create a tag that already exists on every push.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Read the version and decide
+        id: versao
+        shell: bash
+        run: |
+          version=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
+          if [ -z "$version" ]; then
+            echo "could not find the version in the root Cargo.toml"
+            exit 1
+          fi
+          tag="v$version"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/$tag" > /dev/null; then
+            echo "nova=false" >> "$GITHUB_OUTPUT"
+            echo "$tag already exists: nothing to do."
+          else
+            echo "nova=true" >> "$GITHUB_OUTPUT"
+            echo "New version: $tag"
+          fi
+
+      # The tag points to the commit `master` just received, which is what will be packaged.
+      - name: Create the tag
+        if: steps.versao.outputs.nova == 'true'
+        run: |
+          git tag "${{ steps.versao.outputs.tag }}"
+          git push origin "${{ steps.versao.outputs.tag }}"
+
+  release:
+    needs: versao
+    if: needs.versao.outputs.nova == 'true'
+    uses: ./.github/workflows/release.yml
+    with:
+      versao: ${{ needs.versao.outputs.tag }}
+    permissions:
+      contents: write

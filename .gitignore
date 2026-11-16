@@ -1,0 +1,66 @@
+# ROMs / game content — never commit
+roms/
+
+# Mirrored third-party material (Qualcomm/Zeebo docs, SDKs, firmware dumps, clones)
+docs/vendor/
+
+# Build
+build/
+cmake-build-*/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# macOS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Python: bytecode cache written when the tools/ scripts run.
+__pycache__/
+*.pyc
+
+# Rust
+/target/
+
+# Python tools drop bytecode next to the scripts.
+__pycache__/
+# cxx-qt-build writes the QML language server configuration with this machine's path.
+.qmlls.ini
+
+# Debug output from `run` (--dump-heap) and the exported framebuffer
+heap.bin
+module.bin
+*.bmp
+
+# Private servers live in their own repositories, next to this one.
+zeeboids-server/
+OperaMini-Server/
+
+# Console material (firmware, configs, system packages) stays out of the repository.
+vendor/
+
+# Reports the emulator writes next to the executable, one per run.
+*.log
+*.bmp
+.nodeterm/project.json
+ref z-wheel2.png
+
+# Android: Gradle and the `.so` copied by `cargo-ndk` are build output, not source.
+frontends/android/apk/.gradle/
+frontends/android/apk/local.properties
+frontends/android/apk/app/src/main/jniLibs/
+frontends/android/apk/app/src/main/assets/licenses/
+frontends/switch/out/
+frontends/vita-standalone/out/
+
+# Xcode: local state. The project itself (`project.pbxproj`) stays versioned.
+xcuserdata/
+*.xcuserstate
+
+# GitHub wiki: its own repository (zeebx-emu.wiki.git), cloned here only for editing.
+/wiki/

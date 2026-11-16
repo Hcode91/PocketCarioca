@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Zeebx
+GenericName=Zeebo Emulator
+GenericName[pt_BR]=Emulador de Zeebo
+Comment=Zeebo / Qualcomm BREW emulator
+Comment[pt_BR]=Emulador de Zeebo / Qualcomm BREW
+Exec=zeebx
+Icon=zeebx
+Terminal=false
+Categories=Game;Emulator;
+# This is how the compositor ties the window to this file: it must match the `app_id`
+# that `main.rs` sets.
+StartupWMClass=zeebx

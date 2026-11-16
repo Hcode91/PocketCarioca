@@ -1,0 +1,21 @@
+[package]
+name = "pocketcarioca-jni"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-2.0-or-later"
+description = "PocketCarioca: native Android (Kotlin) frontend over the Zeebx core"
+publish = false
+
+# Loaded by the Kotlin app with System.loadLibrary("pocketcarioca"). The Kotlin side owns the
+# activities, the GLSurfaceView and the sensors; this library only drives the core.
+[lib]
+name = "pocketcarioca"
+crate-type = ["cdylib"]
+
+[dependencies]
+zeebx = { path = "../..", default-features = false, features = ["audio", "gl", "soundfont"] }
+glow = "0.16"
+jni = "0.21"
+ndk-context = "0.1"
+log = "0.4"
+android_logger = "0.14"

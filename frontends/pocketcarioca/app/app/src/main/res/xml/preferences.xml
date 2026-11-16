@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+    <PreferenceCategory app:title="Graphics">
+        <SwitchPreferenceCompat app:key="gpu" app:defaultValue="true" app:title="Render 3D on the GPU"
+            app:summary="Faster, and enables resolution scaling and widescreen. Turn off if a game draws wrongly." />
+        <ListPreference app:key="internal_resolution" app:defaultValue="1" app:title="Internal resolution"
+            app:entries="@array/res_names" app:entryValues="@array/res_values" app:useSimpleSummaryProvider="true"
+            app:dependency="gpu" />
+        <ListPreference app:key="aspect" app:defaultValue="0" app:title="Aspect ratio"
+            app:entries="@array/aspect_names" app:entryValues="@array/aspect_values" app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat app:key="smooth" app:defaultValue="true" app:title="Smooth scaling" />
+    </PreferenceCategory>
+    <PreferenceCategory app:title="Audio">
+        <SwitchPreferenceCompat app:key="audio" app:defaultValue="true" app:title="Sound" />
+        <SeekBarPreference app:key="volume" app:defaultValue="100" android:max="100" app:title="Volume"
+            app:showSeekBarValue="true" app:dependency="audio"
+            xmlns:android="http://schemas.android.com/apk/res/android" />
+        <Preference app:key="soundfont_pick" app:title="MIDI soundfont (.sf2)"
+            app:summary="Optional: richer music for games that use MIDI" />
+    </PreferenceCategory>
+    <PreferenceCategory app:title="Controls">
+        <SwitchPreferenceCompat app:key="overlay" app:defaultValue="true" app:title="Touch controls"
+            app:summary="Hidden automatically when a controller is used" />
+        <SwitchPreferenceCompat app:key="analog_stick" app:defaultValue="false" app:title="Analog stick instead of D-pad"
+            app:dependency="overlay" />
+        <SeekBarPreference app:key="overlay_opacity" app:defaultValue="45" android:max="100" app:min="10"
+            app:title="Touch controls opacity" app:showSeekBarValue="true" app:dependency="overlay"
+            xmlns:android="http://schemas.android.com/apk/res/android" />
+        <SwitchPreferenceCompat app:key="haptics" app:defaultValue="true" app:title="Vibrate on press" />
+        <SwitchPreferenceCompat app:key="ff_toggle" app:defaultValue="true" app:title="Fast-forward button toggles"
+            app:summary="Off: hold to fast-forward" />
+    </PreferenceCategory>
+    <PreferenceCategory app:title="Motion (Boomerang)">
+        <SwitchPreferenceCompat app:key="boomerang" app:defaultValue="false" app:title="Use phone as Boomerang"
+            app:summary="Plug in the motion controller and feed it the phone's accelerometer. Applies when a game starts." />
+        <SeekBarPreference app:key="motion_sensitivity" app:defaultValue="100" android:max="300" app:min="25"
+            app:title="Motion sensitivity (%)" app:showSeekBarValue="true" app:dependency="boomerang"
+            xmlns:android="http://schemas.android.com/apk/res/android" />
+    </PreferenceCategory>
+    <PreferenceCategory app:title="About">
+        <Preference app:key="about" app:title="PocketCarioca"
+            app:summary="Built on the Zeebx emulator core (GPL-2.0-or-later). Source: github.com/Hcode91/PocketCarioca" />
+    </PreferenceCategory>
+</PreferenceScreen>

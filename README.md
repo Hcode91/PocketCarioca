@@ -1,3 +1,10 @@
+# PocketCarioca (a Zeebx fork)
+
+This fork adds **PocketCarioca**, a native Kotlin Android app over the Zeebx core, in
+[`frontends/pocketcarioca`](frontends/pocketcarioca/README.md). Everything below is upstream's README.
+
+---
+
 # Zeebx 
 
 🇧🇷 [Leia em português](README.pt-BR.md)

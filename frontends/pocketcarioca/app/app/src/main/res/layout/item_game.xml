@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical" android:background="@drawable/card" android:padding="6dp">
+    <ImageView android:id="@+id/cover" android:layout_width="match_parent" android:layout_height="130dp"
+        android:scaleType="fitCenter" android:padding="4dp" android:contentDescription="@null" />
+    <TextView android:id="@+id/title" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textColor="@color/text" android:textSize="14sp" android:maxLines="2" android:ellipsize="end"
+        android:gravity="center" android:paddingTop="6dp" android:paddingBottom="2dp" />
+</LinearLayout>

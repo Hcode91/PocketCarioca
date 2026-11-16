@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PocketCarioca</string>
+    <string name="settings">Settings</string>
+    <string name="choose_folder">Games folder</string>
+    <string name="import_games">Import games</string>
+    <string name="folder_label">Folder: %1$s</string>
+    <string name="folder_unsupported">That location can\'t be opened as a folder path. Pick a folder on internal storage or an SD card.</string>
+    <string name="importing">Copying into the app…</string>
+    <string name="empty_library">No games found. Choose the folder holding your game dumps (.mod / .zip / game folders), or import them.</string>
+    <string name="empty_permission">Can\'t read this folder yet. Grant \"All files access\" or use Import games.</string>
+    <string name="permission_title">Allow file access</string>
+    <string name="permission_body">Games are read directly from the folder you chose, which needs Android\'s \"All files access\" permission. Without it, use Import games instead.</string>
+    <string name="permission_grant">Open settings</string>
+
+    <string name="menu_resume">Resume</string>
+    <string name="menu_save">Save state</string>
+    <string name="menu_load">Load state</string>
+    <string name="menu_ff_on">Fast-forward: on</string>
+    <string name="menu_ff_off">Fast-forward: off</string>
+    <string name="menu_screenshot">Screenshot</string>
+    <string name="menu_controls_hide">Hide touch controls</string>
+    <string name="menu_controls_show">Show touch controls</string>
+    <string name="menu_recalibrate">Recenter motion</string>
+    <string name="menu_restart">Restart game</string>
+    <string name="menu_settings">Settings</string>
+    <string name="menu_quit">Quit to library</string>
+    <string name="slot_n">Slot %1$d</string>
+    <string name="slot_empty">Empty</string>
+    <string name="saved_slot">Saved to slot %1$d</string>
+    <string name="loaded_slot">Loaded slot %1$d</string>
+    <string name="screenshot_saved">Screenshot saved to Pictures/PocketCarioca</string>
+    <string name="game_failed">The game stopped: %1$s</string>
+    <string name="open_failed">Couldn\'t open the game: %1$s</string>
+</resources>

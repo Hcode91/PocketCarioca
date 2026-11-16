@@ -64,3 +64,9 @@ xcuserdata/
 
 # GitHub wiki: its own repository (zeebx-emu.wiki.git), cloned here only for editing.
 /wiki/
+
+# PocketCarioca build outputs
+frontends/pocketcarioca/app/.gradle/
+frontends/pocketcarioca/app/app/build/
+frontends/pocketcarioca/app/app/src/main/jniLibs/
+frontends/pocketcarioca/app/app/src/main/assets/licenses/

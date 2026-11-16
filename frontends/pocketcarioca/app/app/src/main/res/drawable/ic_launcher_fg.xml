@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- sun over a hill: original mark -->
+    <path android:fillColor="#FFFFC93C" android:pathData="M54,30m-11,0a11,11 0 1,1 22,0a11,11 0 1,1 -22,0" />
+    <path android:fillColor="#FF19C48A" android:pathData="M24,66 C34,44 46,42 54,52 C62,40 76,44 84,66 Z" />
+    <!-- controller -->
+    <path android:fillColor="#FFF2F5FA" android:pathData="M34,62h40a10,10 0 0,1 10,10v0a10,10 0 0,1 -10,10h-6l-4,-4h-20l-4,4h-6a10,10 0 0,1 -10,-10v0a10,10 0 0,1 10,-10z" />
+    <path android:fillColor="#FF0E1320" android:pathData="M37,70h3v-3h3v3h3v3h-3v3h-3v-3h-3z" />
+    <path android:fillColor="#FF19C48A" android:pathData="M69,69m-2.5,0a2.5,2.5 0 1,1 5,0a2.5,2.5 0 1,1 -5,0" />
+    <path android:fillColor="#FFFFC93C" android:pathData="M75,74m-2.5,0a2.5,2.5 0 1,1 5,0a2.5,2.5 0 1,1 -5,0" />
+</vector>

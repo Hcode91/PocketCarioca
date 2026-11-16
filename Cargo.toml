@@ -5,6 +5,7 @@ members = [
     "frontends/qt-standalone",
     "frontends/libretro",
     "frontends/android",
+    "frontends/pocketcarioca",
     "frontends/headless",
     "frontends/ios",
     "frontends/vita-standalone",

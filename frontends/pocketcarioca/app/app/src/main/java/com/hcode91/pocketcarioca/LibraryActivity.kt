@@ -72,6 +72,37 @@ class LibraryActivity : AppCompatActivity() {
         }
         grid.adapter = adapter
         grid.setOnItemClickListener { _, _, pos, _ -> launch(games[pos]) }
+        // A game asked for by another app is looked up once the library scan (onResume) is done.
+        if (savedInstanceState == null) pendingLaunch = intent
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        pendingLaunch = intent
+    }
+
+    /** A launch request from another app, waiting for the library scan. */
+    private var pendingLaunch: Intent? = null
+
+    /**
+     * Another app (BacklogQuest's home-screen tiles) asks for a game with ACTION_LAUNCH_GAME and the
+     * extra "game_id": its title as the library shows it, or its file name without the extension.
+     * The core opens games by path, so a content URI from another app can't be used here.
+     */
+    private fun launchPending() {
+        val i = pendingLaunch ?: return
+        pendingLaunch = null
+        if (i.action != ACTION_LAUNCH_GAME) return
+        val wanted = i.getStringExtra("game_id")?.trim().orEmpty()
+        if (wanted.isEmpty()) return
+        val game = games.firstOrNull { it.title.equals(wanted, ignoreCase = true) }
+            ?: games.firstOrNull { File(it.path).nameWithoutExtension.equals(wanted, ignoreCase = true) }
+        if (game == null) {
+            toast(getString(R.string.launch_not_found, wanted))
+            return
+        }
+        launch(game)
+        finish()
     }
 
     override fun onResume() {
@@ -95,6 +126,7 @@ class LibraryActivity : AppCompatActivity() {
                 empty.text = if (!File(dir).canRead() || (dir != settings.privateRomsDir.absolutePath && !canReadAllFiles()))
                     getString(R.string.empty_permission) else getString(R.string.empty_library)
                 if (list.isNotEmpty()) grid.requestFocus()
+                launchPending()
             }
         }
     }
@@ -176,4 +208,8 @@ class LibraryActivity : AppCompatActivity() {
     }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
+
+    companion object {
+        const val ACTION_LAUNCH_GAME = "com.hcode91.pocket.LAUNCH_GAME"
+    }
 }

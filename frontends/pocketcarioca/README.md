@@ -37,3 +37,11 @@ them as the `PocketCarioca-apk` artifact. Locally it needs the same toolchain as
 ```bash
 ./frontends/pocketcarioca/build.sh --apk
 ```
+
+## Starting a game from another app
+
+Launchers and trackers (such as BacklogQuest's home-screen tiles) can start a game directly: send
+`com.hcode91.pocket.LAUNCH_GAME` to `LibraryActivity` with the extra `game_id`, the game's title
+as the library shows it, or its file name without the extension (any case). The core opens games
+by path, so the game has to be in the library folder; a content URI from another app can't be
+used.

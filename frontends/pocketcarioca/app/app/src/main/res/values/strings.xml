@@ -7,6 +7,7 @@
     <string name="folder_label">Folder: %1$s</string>
     <string name="folder_unsupported">That location can\'t be opened as a folder path. Pick a folder on internal storage or an SD card.</string>
     <string name="importing">Copying into the app…</string>
+    <string name="launch_not_found">\"%1$s\" isn\'t in the library.</string>
     <string name="empty_library">No games found. Choose the folder holding your game dumps (.mod / .zip / game folders), or import them.</string>
     <string name="empty_permission">Can\'t read this folder yet. Grant \"All files access\" or use Import games.</string>
     <string name="permission_title">Allow file access</string>
